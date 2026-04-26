@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel{% endblock %}
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card border-danger">
+      <div class="card-header bg-danger text-white d-flex align-items-center">
+        <h4 class="mb-0"><i class="fas fa-tools me-2"></i>Admin Panel</h4>
+        <span class="badge bg-light text-danger ms-2">Restricted Access</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-5 mb-4">
+    <div class="card">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-users me-2"></i>All Users ({{ users|length }})</h5>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td class="text-muted">{{ u.id }}</td>
+              <td><i class="fas fa-user me-1"></i>{{ u.username }}</td>
+              <td>
+                <span class="badge {% if u.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td>
+                {% if u.role != 'admin' %}
+                <form method="POST" action="/admin/delete_user/{{ u.id }}"
+                      onsubmit="return confirm('Delete this user?')">
+                  <button class="btn btn-outline-danger btn-sm"><i class="fas fa-trash"></i></button>
+                </form>
+                {% else %}
+                <span class="text-muted small">Protected</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7 mb-4">
+    <div class="card">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-database me-2"></i>All Grades (Decrypted View)</h5>
+      </div>
+      <div class="card-body p-0">
+        {% if grades %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr><th>Student</th><th>Course</th><th>Grade</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              {% for g in grades %}
+              <tr>
+                <td><strong>{{ g.username }}</strong></td>
+                <td>{{ g.course }}</td>
+                <td><span class="badge bg-success">{{ g.grade }}</span></td>
+                <td class="text-muted small">{{ g.notes }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <p class="text-muted text-center py-3">No grades in the system yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
