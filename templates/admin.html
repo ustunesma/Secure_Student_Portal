@@ -1,83 +1,196 @@
 {% extends "base.html" %}
 {% block title %}Admin Panel{% endblock %}
 {% block content %}
+
+<!-- Assign Grade Form -->
 <div class="row mb-4">
-  <div class="col-12">
-    <div class="card border-danger">
-      <div class="card-header bg-danger text-white d-flex align-items-center">
-        <h4 class="mb-0"><i class="fas fa-tools me-2"></i>Admin Panel</h4>
-        <span class="badge bg-light text-danger ms-2">Restricted Access</span>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Assign Grade to Student</h5>
+      </div>
+      <div class="card-body">
+        {% if students %}
+        <form method="POST" action="/admin/assign_grade">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Student</label>
+            <select name="user_id" class="form-select" required>
+              <option value="" disabled selected>Select a student...</option>
+              {% for s in students %}
+              <option value="{{ s.id }}">{{ s.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Course</label>
+            <input type="text" name="course" class="form-control"
+                   placeholder="e.g. SWE210 Software Security" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Grade</label>
+            <input type="text" name="grade" class="form-control"
+                   placeholder="e.g. A+, B, 85" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Notes <small class="text-muted">(optional)</small></label>
+            <textarea name="notes" class="form-control" rows="2"
+                      placeholder="Feedback for the student..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Date</label>
+            <input type="date" name="date" class="form-control" required/>
+          </div>
+          <button type="submit" class="btn btn-success w-100">
+            <i class="fas fa-lock me-2"></i>Encrypt & Assign Grade
+          </button>
+        </form>
+        {% else %}
+        <div class="text-center text-muted py-3">
+          <i class="fas fa-users fa-2x mb-2 d-block"></i>
+          No student accounts yet. Students need to register first.
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
-</div>
 
-<div class="row">
-  <div class="col-md-5 mb-4">
+  <!-- Student Accounts -->
+  <div class="col-lg-7">
     <div class="card">
       <div class="card-header bg-dark text-white">
-        <h5 class="mb-0"><i class="fas fa-users me-2"></i>All Users ({{ users|length }})</h5>
+        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Registered Students ({{ students|length }})</h5>
       </div>
       <div class="card-body p-0">
+        {% if students %}
         <table class="table table-hover mb-0">
-          <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr></thead>
+          <thead><tr><th>ID</th><th>Username</th><th>Grades</th><th>Action</th></tr></thead>
           <tbody>
-            {% for u in users %}
+            {% for s in students %}
             <tr>
-              <td class="text-muted">{{ u.id }}</td>
-              <td><i class="fas fa-user me-1"></i>{{ u.username }}</td>
+              <td class="text-muted">{{ s.id }}</td>
+              <td><i class="fas fa-user-graduate me-1 text-primary"></i>{{ s.username }}</td>
               <td>
-                <span class="badge {% if u.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
-                  {{ u.role }}
+                <span class="badge bg-secondary">
+                  {{ grades | selectattr("username", "equalto", s.username) | list | length }}
                 </span>
               </td>
               <td>
-                {% if u.role != 'admin' %}
-                <form method="POST" action="/admin/delete_user/{{ u.id }}"
-                      onsubmit="return confirm('Delete this user?')">
-                  <button class="btn btn-outline-danger btn-sm"><i class="fas fa-trash"></i></button>
+                <form method="POST" action="/admin/delete_user/{{ s.id }}"
+                      onsubmit="return confirm('Delete {{ s.username }} and all their grades?')">
+                  <button class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </form>
-                {% else %}
-                <span class="text-muted small">Protected</span>
-                {% endif %}
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-7 mb-4">
-    <div class="card">
-      <div class="card-header bg-dark text-white">
-        <h5 class="mb-0"><i class="fas fa-database me-2"></i>All Grades (Decrypted View)</h5>
-      </div>
-      <div class="card-body p-0">
-        {% if grades %}
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead>
-              <tr><th>Student</th><th>Course</th><th>Grade</th><th>Notes</th></tr>
-            </thead>
-            <tbody>
-              {% for g in grades %}
-              <tr>
-                <td><strong>{{ g.username }}</strong></td>
-                <td>{{ g.course }}</td>
-                <td><span class="badge bg-success">{{ g.grade }}</span></td>
-                <td class="text-muted small">{{ g.notes }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
         {% else %}
-          <p class="text-muted text-center py-3">No grades in the system yet.</p>
+        <p class="text-muted text-center py-3">No students registered yet.</p>
         {% endif %}
       </div>
     </div>
   </div>
 </div>
+
+<!-- All Grades Table -->
+<div class="card">
+  <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0"><i class="fas fa-database me-2"></i>All Assigned Grades</h5>
+    <span class="badge bg-light text-danger">{{ grades|length }} total</span>
+  </div>
+  <div class="card-body p-0">
+    {% if grades %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Course</th>
+            <th>Grade</th>
+            <th>Date</th>
+            <th>Notes</th>
+            <th>Edit</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in grades %}
+          <tr>
+            <td><strong>{{ g.username }}</strong></td>
+            <td>{{ g.course }}</td>
+            <td><span class="badge bg-success">{{ g.grade }}</span></td>
+            <td class="text-muted small">
+              <i class="fas fa-calendar me-1"></i>{{ g.date }}
+            </td>
+            <td class="text-muted small">{{ g.notes }}</td>
+            <!-- Edit button -->
+            <td>
+              <button class="btn btn-outline-primary btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#editModal{{ g.id }}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <!-- Edit Modal -->
+              <div class="modal fade" id="editModal{{ g.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                  <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">
+                        Edit — {{ g.username }} / {{ g.course }}
+                      </h5>
+                      <button type="button" class="btn-close btn-close-white"
+                              data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="/admin/edit_grade/{{ g.id }}">
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Grade</label>
+                          <input type="text" name="grade" class="form-control"
+                                 value="{{ g.grade }}" required/>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Notes</label>
+                          <textarea name="notes" class="form-control"
+                                    rows="2">{{ g.notes }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Date</label>
+                          <input type="date" name="date" class="form-control"
+                                 value="{{ g.date }}" required/>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                          <i class="fas fa-save me-1"></i>Save Changes
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <!-- Delete -->
+            <td>
+              <form method="POST" action="/admin/delete_grade/{{ g.id }}"
+                    onsubmit="return confirm('Delete this grade?')">
+                <button class="btn btn-outline-danger btn-sm">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-4">No grades assigned yet.</p>
+    {% endif %}
+  </div>
+</div>
+
 {% endblock %}
