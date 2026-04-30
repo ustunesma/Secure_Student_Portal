@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_wtf.csrf import CSRFProtect
 from functools import wraps
 import sqlite3
 import bcrypt
@@ -6,8 +7,13 @@ from cryptography.fernet import Fernet
 import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-
+app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=False
+)
+csrf = CSRFProtect(app)
 # ── Encryption ─────────────────────────────────────────────────────────────────
 KEY_FILE = "secret.key"
 
@@ -55,14 +61,26 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
     """)
-    existing = conn.execute("SELECT id FROM users WHERE username='admin'").fetchone()
+
+    existing = conn.execute(
+        "SELECT id FROM users WHERE username='admin'"
+    ).fetchone()
+
+    # ONLY create admin if not exists
     if not existing:
-        hashed = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
+        admin_password = os.environ.get("ADMIN_PASSWORD")
+
+        if not admin_password:
+            raise RuntimeError("ADMIN_PASSWORD environment variable is required.")
+
+        hashed = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
+
         conn.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
             ("admin", hashed, "admin")
         )
-        conn.commit()
+
+    conn.commit()
     conn.close()
 
 # ── Decorators ─────────────────────────────────────────────────────────────────
@@ -99,13 +117,36 @@ def register():
     if request.method == "POST":
         username = request.form["username"].strip()
         password = request.form["password"]
+
+        # Basic empty check
         if not username or not password:
             flash("All fields are required.", "danger")
             return render_template("register.html")
-        if len(password) < 6:
-            flash("Password must be at least 6 characters.", "danger")
+
+        # Password validation
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
             return render_template("register.html")
+
+        if " " in password:
+            flash("Password cannot contain spaces.", "danger")
+            return render_template("register.html")
+
+        if not any(char.isupper() for char in password):
+            flash("Password must contain at least one uppercase letter.", "danger")
+            return render_template("register.html")
+
+        if not any(char.islower() for char in password):
+            flash("Password must contain at least one lowercase letter.", "danger")
+            return render_template("register.html")
+
+        if not any(char.isdigit() for char in password):
+            flash("Password must contain at least one number.", "danger")
+            return render_template("register.html")
+
+        # Hash password
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
         try:
             conn = get_db()
             conn.execute(
@@ -114,10 +155,13 @@ def register():
             )
             conn.commit()
             conn.close()
+
             flash("Account created! Please log in.", "success")
             return redirect(url_for("login"))
+
         except sqlite3.IntegrityError:
             flash("Username already taken.", "danger")
+
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])

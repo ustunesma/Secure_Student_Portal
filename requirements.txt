@@ -1,3 +1,4 @@
 flask
 bcrypt
 cryptography
+Flask-WTF
