@@ -1,0 +1,6 @@
+portal.db
+secret.key
+.env
+__pycache__/
+*.pyc
+instance/
