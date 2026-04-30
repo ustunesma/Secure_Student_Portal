@@ -5,6 +5,7 @@ import sqlite3
 import bcrypt
 from cryptography.fernet import Fernet
 import os
+import time
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
@@ -14,6 +15,9 @@ app.config.update(
     SESSION_COOKIE_SECURE=False
 )
 csrf = CSRFProtect(app)
+failed_logins = {}
+MAX_ATTEMPTS = 3
+LOCK_TIME = 60
 # ── Encryption ─────────────────────────────────────────────────────────────────
 KEY_FILE = "secret.key"
 
@@ -143,6 +147,9 @@ def register():
         if not any(char.isdigit() for char in password):
             flash("Password must contain at least one number.", "danger")
             return render_template("register.html")
+        if not any(char in "!@#$%^&*()" for char in password):
+            flash("Password must contain at least one special character (!@#$%^&*).", "danger")
+            return render_template("register.html")
 
         # Hash password
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -169,18 +176,40 @@ def login():
     if request.method == "POST":
         username = request.form["username"].strip()
         password = request.form["password"]
+
+        if "login_attempts" not in session:
+            session["login_attempts"] = 0
+            session["last_attempt"] = 0
+
+        if session["login_attempts"] >= MAX_ATTEMPTS:
+            if time.time() - session["last_attempt"] < LOCK_TIME:
+                flash(f"Too many attempts. Please wait {LOCK_TIME} seconds.", "danger")
+                return render_template("login.html")
+            else:
+                session["login_attempts"] = 0
+
         conn = get_db()
         user = conn.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
         conn.close()
+
         if user and bcrypt.checkpw(password.encode(), user["password"].encode()):
-            session["user_id"]  = user["id"]
+            session.clear()
+            session["user_id"] = user["id"]
             session["username"] = user["username"]
-            session["role"]     = user["role"]
+            session["role"] = user["role"]
+
+            session["login_attempts"] = 0
+
             flash(f"Welcome, {username}!", "success")
             return redirect(url_for("dashboard"))
+
+        session["login_attempts"] += 1
+        session["last_attempt"] = time.time()
+
         flash("Invalid username or password.", "danger")
+
     return render_template("login.html")
 
 @app.route("/logout")
@@ -249,6 +278,10 @@ def assign_grade():
     grade   = request.form["grade"].strip()
     notes   = request.form["notes"].strip()
     date    = request.form["date"].strip()
+    # Course length validation
+    if len(course) > 50:
+      flash("Course name is too long (max 50 characters).", "danger")
+      return redirect(url_for("admin"))
 
     if not user_id or not course or not grade or not date:
         flash("Student, course, grade and date are all required.", "danger")
