@@ -357,6 +357,12 @@ def admin():
     teachers = conn.execute(
         "SELECT id, username FROM users WHERE role = 'teacher' ORDER BY username"
     ).fetchall()
+    all_grades = conn.execute("""
+        SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
+        FROM grades g
+        JOIN users u ON g.user_id = u.id
+        ORDER BY u.username, g.course
+    """).fetchall()
     conn.close()
 
     grade_list = []
