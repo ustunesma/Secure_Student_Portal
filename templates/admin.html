@@ -2,11 +2,7 @@
 {% block title %}Admin Panel{% endblock %}
 {% block content %}
 
-<!-- Assign Grade Form -->
-<div class="row mb-4">
-  <div class="col-lg-5">
-    <div class="card">
-      <!-- Teacher Management -->
+<!-- Teacher Management -->
 <div class="row mb-4">
   <div class="col-lg-5">
     <div class="card">
@@ -74,6 +70,11 @@
     </div>
   </div>
 </div>
+
+<!-- Assign Grade + Student Accounts -->
+<div class="row mb-4">
+  <div class="col-lg-5">
+    <div class="card">
       <div class="card-header bg-success text-white">
         <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Assign Grade to Student</h5>
       </div>
@@ -81,7 +82,6 @@
         {% if students %}
         <form method="POST" action="/admin/assign_grade">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Student</label>
             <select name="user_id" class="form-select" required>
@@ -91,30 +91,25 @@
               {% endfor %}
             </select>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Course</label>
             <input type="text" name="course" class="form-control"
                    placeholder="e.g. SWE210 Software Security" required/>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Grade</label>
             <input type="text" name="grade" class="form-control"
                    placeholder="e.g. A+, B, 85" required/>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Notes <small class="text-muted">(optional)</small></label>
             <textarea name="notes" class="form-control" rows="2"
                       placeholder="Feedback for the student..."></textarea>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Date</label>
             <input type="date" name="date" class="form-control" required/>
           </div>
-
           <button type="submit" class="btn btn-success w-100">
             <i class="fas fa-lock me-2"></i>Encrypt & Assign Grade
           </button>
@@ -129,7 +124,6 @@
     </div>
   </div>
 
-  <!-- Student Accounts -->
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header bg-dark text-white">
@@ -218,49 +212,39 @@
               <i class="fas fa-calendar me-1"></i>{{ g.date }}
             </td>
             <td class="text-muted small">{{ g.notes }}</td>
-
-            <!-- Edit -->
             <td>
               <button class="btn btn-outline-primary btn-sm"
                       data-bs-toggle="modal"
                       data-bs-target="#editModal{{ g.id }}">
                 <i class="fas fa-edit"></i>
               </button>
-
               <div class="modal fade" id="editModal{{ g.id }}" tabindex="-1">
                 <div class="modal-dialog">
                   <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
-                      <h5 class="modal-title">
-                        Edit — {{ g.username }} / {{ g.course }}
-                      </h5>
+                      <h5 class="modal-title">Edit — {{ g.username }} / {{ g.course }}</h5>
                       <button type="button" class="btn-close btn-close-white"
                               data-bs-dismiss="modal"></button>
                     </div>
-
                     <form method="POST" action="/admin/edit_grade/{{ g.id }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
                       <div class="modal-body">
                         <div class="mb-3">
                           <label class="form-label fw-semibold">Grade</label>
                           <input type="text" name="grade" class="form-control"
                                  value="{{ g.grade }}" required/>
                         </div>
-
                         <div class="mb-3">
                           <label class="form-label fw-semibold">Notes</label>
                           <textarea name="notes" class="form-control"
                                     rows="2">{{ g.notes }}</textarea>
                         </div>
-
                         <div class="mb-3">
                           <label class="form-label fw-semibold">Date</label>
                           <input type="date" name="date" class="form-control"
                                  value="{{ g.date }}" required/>
                         </div>
                       </div>
-
                       <div class="modal-footer">
                         <button type="button" class="btn btn-secondary"
                                 data-bs-dismiss="modal">Cancel</button>
@@ -269,13 +253,10 @@
                         </button>
                       </div>
                     </form>
-
                   </div>
                 </div>
               </div>
             </td>
-
-            <!-- Delete -->
             <td>
               <form method="POST" action="/admin/delete_grade/{{ g.id }}"
                     onsubmit="return confirm('Delete this grade?')">
@@ -285,7 +266,6 @@
                 </button>
               </form>
             </td>
-
           </tr>
           {% endfor %}
         </tbody>

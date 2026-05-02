@@ -472,15 +472,17 @@ def edit_grade(grade_id):
     notes = request.form["notes"].strip()
     date  = request.form["date"].strip()
 
+    redirect_target = url_for("admin") if session.get("role") == "admin" else url_for("teacher")
+
     if not grade or not date:
         flash("Grade and date cannot be empty.", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
     if len(grade) > 10:
         flash("Grade value is too long.", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
     if len(notes) > 300:
         flash("Notes are too long (max 300 characters).", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
 
     conn = get_db()
     # Verify grade exists before updating
@@ -490,7 +492,7 @@ def edit_grade(grade_id):
     if not existing:
         flash("Grade not found.", "danger")
         conn.close()
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
 
     conn.execute(
         "UPDATE grades SET grade_enc = ?, notes_enc = ?, date = ? WHERE id = ?",
