@@ -65,12 +65,13 @@ def init_db():
             locked_until  REAL    NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS grades (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id   INTEGER NOT NULL,
-            course    TEXT    NOT NULL,
-            grade_enc TEXT    NOT NULL,
-            notes_enc TEXT    NOT NULL,
-            date      TEXT    NOT NULL DEFAULT '',
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL,
+            assigned_by INTEGER NOT NULL DEFAULT 0,
+            course      TEXT    NOT NULL,
+            grade_enc   TEXT    NOT NULL,
+            notes_enc   TEXT    NOT NULL,
+            date        TEXT    NOT NULL DEFAULT '',
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
     """)
@@ -358,9 +359,11 @@ def admin():
         "SELECT id, username FROM users WHERE role = 'teacher' ORDER BY username"
     ).fetchall()
     all_grades = conn.execute("""
-        SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
+        SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date,
+               COALESCE(t.username, 'admin') AS assigned_by_name
         FROM grades g
         JOIN users u ON g.user_id = u.id
+        LEFT JOIN users t ON g.assigned_by = t.id
         ORDER BY u.username, g.course
     """).fetchall()
     conn.close()
@@ -368,12 +371,13 @@ def admin():
     grade_list = []
     for g in all_grades:
         grade_list.append({
-            "id":       g["id"],
-            "username": g["username"],
-            "course":   g["course"],
-            "grade":    decrypt(g["grade_enc"]),
-            "notes":    decrypt(g["notes_enc"]),
-            "date":     g["date"],
+            "id":            g["id"],
+            "username":      g["username"],
+            "course":        g["course"],
+            "grade":         decrypt(g["grade_enc"]),
+            "notes":         decrypt(g["notes_enc"]),
+            "date":          g["date"],
+            "assigned_by":   g["assigned_by_name"],
         })
 
     now = time.time()
@@ -395,13 +399,14 @@ def teacher():
     students = conn.execute(
         "SELECT id, username FROM users WHERE role = 'user' ORDER BY username"
     ).fetchall()
+
     all_grades = conn.execute("""
         SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
         FROM grades g
         JOIN users u ON g.user_id = u.id
+        WHERE g.assigned_by = ?
         ORDER BY u.username, g.course
-    """).fetchall()
-    conn.close()
+    """, (session["user_id"],)).fetchall()
 
     grade_list = []
     for g in all_grades:
@@ -449,8 +454,8 @@ def assign_grade():
         return redirect(url_for("admin"))
 
     conn.execute(
-        "INSERT INTO grades (user_id, course, grade_enc, notes_enc, date) VALUES (?, ?, ?, ?, ?)",
-        (user_id, course, encrypt(grade), encrypt(notes or "—"), date)
+        "INSERT INTO grades (user_id, assigned_by, course, grade_enc, notes_enc, date) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, session["user_id"], course, encrypt(grade), encrypt(notes or "—"), date)
     )
     conn.commit()
     conn.close()

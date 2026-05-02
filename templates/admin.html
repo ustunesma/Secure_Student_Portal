@@ -198,6 +198,7 @@
             <th>Student</th>
             <th>Course</th>
             <th>Grade</th>
+            <th>Assigned by</th>
             <th>Date</th>
             <th>Notes</th>
             <th>Edit</th>
@@ -210,6 +211,9 @@
             <td><strong>{{ g.username }}</strong></td>
             <td>{{ g.course }}</td>
             <td><span class="badge bg-success">{{ g.grade }}</span></td>
+            <td class="text-muted small">
+              <i class="fas fa-chalkboard-teacher me-1"></i>{{ g.assigned_by }}
+            </td>
             <td class="text-muted small">
               <i class="fas fa-calendar me-1"></i>{{ g.date }}
             </td>
