@@ -6,6 +6,74 @@
 <div class="row mb-4">
   <div class="col-lg-5">
     <div class="card">
+      <!-- Teacher Management -->
+<div class="row mb-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>Create Teacher Account</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/admin/create_teacher">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Username</label>
+            <input type="text" name="username" class="form-control"
+                   placeholder="e.g. prof_smith" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Password</label>
+            <input type="password" name="password" class="form-control" required/>
+          </div>
+          <div class="alert alert-secondary small mb-3">
+            Password: 8+ chars, uppercase, lowercase, number, special character.
+          </div>
+          <button type="submit" class="btn btn-warning w-100">
+            <i class="fas fa-user-plus me-2"></i>Create Teacher
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">
+          <i class="fas fa-chalkboard-teacher me-2"></i>
+          Teacher Accounts ({{ teachers|length }})
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        {% if teachers %}
+        <table class="table table-hover mb-0">
+          <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for t in teachers %}
+            <tr>
+              <td class="text-muted">{{ t.id }}</td>
+              <td><i class="fas fa-chalkboard-teacher me-1 text-warning"></i>{{ t.username }}</td>
+              <td><span class="badge bg-warning text-dark">teacher</span></td>
+              <td>
+                <form method="POST" action="/admin/delete_teacher/{{ t.id }}"
+                      onsubmit="return confirm('Delete teacher {{ t.username }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center py-3">No teacher accounts yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
       <div class="card-header bg-success text-white">
         <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Assign Grade to Student</h5>
       </div>

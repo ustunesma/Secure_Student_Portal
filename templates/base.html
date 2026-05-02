@@ -32,6 +32,8 @@
         </span>
         {% if session.role == 'admin' %}
           <a href="/admin" class="btn btn-warning btn-sm"><i class="fas fa-tools me-1"></i>Admin</a>
+        {% elif session.role == 'teacher' %}
+          <a href="/teacher" class="btn btn-success btn-sm"><i class="fas fa-chalkboard-teacher me-1"></i>Teacher Panel</a>
         {% endif %}
         <a href="/logout" class="btn btn-outline-light btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</a>
       {% else %}

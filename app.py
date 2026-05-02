@@ -143,6 +143,24 @@ def admin_required(f):
             return redirect(url_for("dashboard"))
         return f(*args, **kwargs)
     return decorated
+    
+def teacher_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in.", "warning")
+            return redirect(url_for("login"))
+        last_active = session.get("last_active", 0)
+        if time.time() - last_active > SESSION_TIMEOUT:
+            session.clear()
+            flash("Your session expired. Please log in again.", "warning")
+            return redirect(url_for("login"))
+        session["last_active"] = time.time()
+        if session.get("role") not in ("admin", "teacher"):
+            flash("Access denied.", "danger")
+            return redirect(url_for("dashboard"))
+        return f(*args, **kwargs)
+    return decorated
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -309,6 +327,8 @@ def change_password():
 def dashboard():
     if session.get("role") == "admin":
         return redirect(url_for("admin"))
+    if session.get("role") == "teacher":
+        return redirect(url_for("teacher"))
 
     conn = get_db()
     rows = conn.execute(
@@ -334,12 +354,9 @@ def admin():
     students = conn.execute(
         "SELECT id, username, login_attempts, locked_until FROM users WHERE role = 'user' ORDER BY username"
     ).fetchall()
-    all_grades = conn.execute("""
-        SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
-        FROM grades g
-        JOIN users u ON g.user_id = u.id
-        ORDER BY u.username, g.course
-    """).fetchall()
+    teachers = conn.execute(
+        "SELECT id, username FROM users WHERE role = 'teacher' ORDER BY username"
+    ).fetchall()
     conn.close()
 
     grade_list = []
@@ -363,11 +380,39 @@ def admin():
             "attempts": s["login_attempts"],
         })
 
-    return render_template("admin.html", students=student_list, grades=grade_list)
+    return render_template("admin.html", students=student_list, grades=grade_list, teachers=teachers)
+# ── Teacher panel ──────────────────────────────────────────────────────────────
+@app.route("/teacher")
+@teacher_required
+def teacher():
+    conn = get_db()
+    students = conn.execute(
+        "SELECT id, username FROM users WHERE role = 'user' ORDER BY username"
+    ).fetchall()
+    all_grades = conn.execute("""
+        SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
+        FROM grades g
+        JOIN users u ON g.user_id = u.id
+        ORDER BY u.username, g.course
+    """).fetchall()
+    conn.close()
+
+    grade_list = []
+    for g in all_grades:
+        grade_list.append({
+            "id":       g["id"],
+            "username": g["username"],
+            "course":   g["course"],
+            "grade":    decrypt(g["grade_enc"]),
+            "notes":    decrypt(g["notes_enc"]),
+            "date":     g["date"],
+        })
+
+    return render_template("teacher.html", students=students, grades=grade_list)
 
 # ── Admin assigns a grade ──────────────────────────────────────────────────────
 @app.route("/admin/assign_grade", methods=["POST"])
-@admin_required
+@teacher_required
 def assign_grade():
     user_id = request.form["user_id"]
     course  = request.form["course"].strip()
@@ -408,7 +453,7 @@ def assign_grade():
 
 # ── Admin edits a grade ────────────────────────────────────────────────────────
 @app.route("/admin/edit_grade/<int:grade_id>", methods=["POST"])
-@admin_required
+@teacher_required
 def edit_grade(grade_id):
     grade = request.form["grade"].strip()
     notes = request.form["notes"].strip()
@@ -445,7 +490,7 @@ def edit_grade(grade_id):
 
 # ── Admin deletes a grade ──────────────────────────────────────────────────────
 @app.route("/admin/delete_grade/<int:grade_id>", methods=["POST"])
-@admin_required
+@teacher_required
 def delete_grade(grade_id):
     conn = get_db()
     conn.execute("DELETE FROM grades WHERE id = ?", (grade_id,))
@@ -469,6 +514,60 @@ def delete_user(user_id):
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         flash(f"Student '{user['username']}' deleted.", "info")
+    conn.close()
+    return redirect(url_for("admin"))
+
+# ── Admin creates a teacher account ───────────────────────────────────────────
+@app.route("/admin/create_teacher", methods=["POST"])
+@admin_required
+def create_teacher():
+    username = request.form["username"].strip()
+    password = request.form["password"]
+
+    if not username or not password:
+        flash("Username and password are required.", "danger")
+        return redirect(url_for("admin"))
+
+    if len(username) < 3 or len(username) > 30:
+        flash("Username must be between 3 and 30 characters.", "danger")
+        return redirect(url_for("admin"))
+    if not username.replace("_", "").replace("-", "").isalnum():
+        flash("Username can only contain letters, numbers, hyphens and underscores.", "danger")
+        return redirect(url_for("admin"))
+
+    error = validate_password(password)
+    if error:
+        flash(error, "danger")
+        return redirect(url_for("admin"))
+
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username, hashed, "teacher")
+        )
+        conn.commit()
+        conn.close()
+        flash(f"Teacher account '{username}' created successfully.", "success")
+    except sqlite3.IntegrityError:
+        flash("Username already taken.", "danger")
+    return redirect(url_for("admin"))
+
+# ── Admin deletes a teacher account ───────────────────────────────────────────
+@app.route("/admin/delete_teacher/<int:user_id>", methods=["POST"])
+@admin_required
+def delete_teacher(user_id):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT username, role FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if user and user["role"] == "teacher":
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        flash(f"Teacher '{user['username']}' deleted.", "info")
+    else:
+        flash("Invalid request.", "danger")
     conn.close()
     return redirect(url_for("admin"))
 
