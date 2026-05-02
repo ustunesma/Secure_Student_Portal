@@ -186,6 +186,7 @@ def register():
             flash("Account created! Please log in.", "success")
             return redirect(url_for("login"))
         except sqlite3.IntegrityError:
+            conn.close()
             flash("Username already taken.", "danger")
     return render_template("register.html")
 
