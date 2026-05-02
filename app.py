@@ -8,7 +8,6 @@ import bcrypt
 from cryptography.fernet import Fernet
 import os
 import time
-import base64
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
@@ -83,6 +82,8 @@ def init_db():
         admin_password = os.environ.get("ADMIN_PASSWORD")
         if not admin_password:
             raise RuntimeError("ADMIN_PASSWORD environment variable is required.")
+        if len(admin_password) < 8:
+            raise RuntimeError("ADMIN_PASSWORD must be at least 8 characters.")
         hashed = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
         conn.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
