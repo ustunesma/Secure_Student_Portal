@@ -15,7 +15,6 @@ app.config.update(
     SESSION_COOKIE_SECURE=False
 )
 csrf = CSRFProtect(app)
-failed_logins = {}
 MAX_ATTEMPTS = 3
 LOCK_TIME = 60
 # ── Encryption ─────────────────────────────────────────────────────────────────
@@ -217,6 +216,74 @@ def logout():
     session.clear()
     flash("You have been logged out.", "info")
     return redirect(url_for("login"))
+
+@app.route("/change_password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_password = request.form["current_password"]
+        new_password = request.form["new_password"]
+        confirm_password = request.form["confirm_password"]
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE id = ?", (session["user_id"],)
+        ).fetchone()
+
+        if not bcrypt.checkpw(current_password.encode(), user["password"].encode()):
+            conn.close()
+            flash("Current password is incorrect.", "danger")
+            return render_template("change_password.html")
+
+        if new_password != confirm_password:
+            conn.close()
+            flash("New passwords do not match.", "danger")
+            return render_template("change_password.html")
+
+        if len(new_password) < 8:
+            conn.close()
+            flash("New password must be at least 8 characters.", "danger")
+            return render_template("change_password.html")
+
+        if " " in new_password:
+            conn.close()
+            flash("New password cannot contain spaces.", "danger")
+            return render_template("change_password.html")
+
+        if not any(char.isupper() for char in new_password):
+            conn.close()
+            flash("New password must contain at least one uppercase letter.", "danger")
+            return render_template("change_password.html")
+
+        if not any(char.islower() for char in new_password):
+            conn.close()
+            flash("New password must contain at least one lowercase letter.", "danger")
+            return render_template("change_password.html")
+
+        if not any(char.isdigit() for char in new_password):
+            conn.close()
+            flash("New password must contain at least one number.", "danger")
+            return render_template("change_password.html")
+
+        if not any(char in "!@#$%^&*()" for char in new_password):
+            conn.close()
+            flash("New password must contain at least one special character.", "danger")
+            return render_template("change_password.html")
+
+        hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+
+        conn.execute(
+            "UPDATE users SET password = ? WHERE id = ?",
+            (hashed, session["user_id"])
+        )
+        conn.commit()
+        conn.close()
+
+        flash("Password changed successfully. Please log in again.", "success")
+        session.clear()
+        return redirect(url_for("login"))
+
+    return render_template("change_password.html")
 
 # ── Student dashboard — READ ONLY ──────────────────────────────────────────────
 @app.route("/dashboard")
