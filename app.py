@@ -6,21 +6,28 @@ import bcrypt
 from cryptography.fernet import Fernet
 import os
 import time
+import base64
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=False
+    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
 )
 csrf = CSRFProtect(app)
-MAX_ATTEMPTS = 3
-LOCK_TIME = 60
-# ── Encryption ─────────────────────────────────────────────────────────────────
-KEY_FILE = "secret.key"
 
+MAX_ATTEMPTS = 3
+LOCK_TIME    = 60        # seconds
+SESSION_TIMEOUT = 1800   # 30 minutes of inactivity
+
+# ── Encryption ─────────────────────────────────────────────────────────────────
+# Prefer key from environment variable; fall back to file for dev convenience
 def load_or_create_key():
+    env_key = os.environ.get("FERNET_KEY")
+    if env_key:
+        return env_key.encode()
+    KEY_FILE = "secret.key"
     if os.path.exists(KEY_FILE):
         with open(KEY_FILE, "rb") as f:
             return f.read()
@@ -49,10 +56,12 @@ def init_db():
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT    UNIQUE NOT NULL,
-            password TEXT    NOT NULL,
-            role     TEXT    NOT NULL DEFAULT 'user'
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    UNIQUE NOT NULL,
+            password      TEXT    NOT NULL,
+            role          TEXT    NOT NULL DEFAULT 'user',
+            login_attempts INTEGER NOT NULL DEFAULT 0,
+            locked_until  REAL    NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS grades (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,27 +73,38 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
     """)
-
     existing = conn.execute(
         "SELECT id FROM users WHERE username='admin'"
     ).fetchone()
 
-    # ONLY create admin if not exists
     if not existing:
         admin_password = os.environ.get("ADMIN_PASSWORD")
-
         if not admin_password:
             raise RuntimeError("ADMIN_PASSWORD environment variable is required.")
-
         hashed = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
-
         conn.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
             ("admin", hashed, "admin")
         )
-
     conn.commit()
     conn.close()
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+def validate_password(password):
+    """Returns an error string or None if valid."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    if " " in password:
+        return "Password cannot contain spaces."
+    if not any(c.isupper() for c in password):
+        return "Password must contain at least one uppercase letter."
+    if not any(c.islower() for c in password):
+        return "Password must contain at least one lowercase letter."
+    if not any(c.isdigit() for c in password):
+        return "Password must contain at least one number."
+    if not any(c in "!@#$%^&*()" for c in password):
+        return "Password must contain at least one special character (!@#$%^&*)."
+    return None
 
 # ── Decorators ─────────────────────────────────────────────────────────────────
 def login_required(f):
@@ -93,6 +113,13 @@ def login_required(f):
         if "user_id" not in session:
             flash("Please log in to access this page.", "warning")
             return redirect(url_for("login"))
+        # Session timeout check
+        last_active = session.get("last_active", 0)
+        if time.time() - last_active > SESSION_TIMEOUT:
+            session.clear()
+            flash("Your session expired due to inactivity. Please log in again.", "warning")
+            return redirect(url_for("login"))
+        session["last_active"] = time.time()
         return f(*args, **kwargs)
     return decorated
 
@@ -102,6 +129,12 @@ def admin_required(f):
         if "user_id" not in session:
             flash("Please log in.", "warning")
             return redirect(url_for("login"))
+        last_active = session.get("last_active", 0)
+        if time.time() - last_active > SESSION_TIMEOUT:
+            session.clear()
+            flash("Your session expired. Please log in again.", "warning")
+            return redirect(url_for("login"))
+        session["last_active"] = time.time()
         if session.get("role") != "admin":
             flash("Access denied. Admins only.", "danger")
             return redirect(url_for("dashboard"))
@@ -121,38 +154,25 @@ def register():
         username = request.form["username"].strip()
         password = request.form["password"]
 
-        # Basic empty check
         if not username or not password:
             flash("All fields are required.", "danger")
             return render_template("register.html")
 
+        # Username validation
+        if len(username) < 3 or len(username) > 30:
+            flash("Username must be between 3 and 30 characters.", "danger")
+            return render_template("register.html")
+        if not username.replace("_", "").replace("-", "").isalnum():
+            flash("Username can only contain letters, numbers, hyphens and underscores.", "danger")
+            return render_template("register.html")
+
         # Password validation
-        if len(password) < 8:
-            flash("Password must be at least 8 characters.", "danger")
+        error = validate_password(password)
+        if error:
+            flash(error, "danger")
             return render_template("register.html")
 
-        if " " in password:
-            flash("Password cannot contain spaces.", "danger")
-            return render_template("register.html")
-
-        if not any(char.isupper() for char in password):
-            flash("Password must contain at least one uppercase letter.", "danger")
-            return render_template("register.html")
-
-        if not any(char.islower() for char in password):
-            flash("Password must contain at least one lowercase letter.", "danger")
-            return render_template("register.html")
-
-        if not any(char.isdigit() for char in password):
-            flash("Password must contain at least one number.", "danger")
-            return render_template("register.html")
-        if not any(char in "!@#$%^&*()" for char in password):
-            flash("Password must contain at least one special character (!@#$%^&*).", "danger")
-            return render_template("register.html")
-
-        # Hash password
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
         try:
             conn = get_db()
             conn.execute(
@@ -161,13 +181,10 @@ def register():
             )
             conn.commit()
             conn.close()
-
             flash("Account created! Please log in.", "success")
             return redirect(url_for("login"))
-
         except sqlite3.IntegrityError:
             flash("Username already taken.", "danger")
-
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
@@ -176,39 +193,56 @@ def login():
         username = request.form["username"].strip()
         password = request.form["password"]
 
-        if "login_attempts" not in session:
-            session["login_attempts"] = 0
-            session["last_attempt"] = 0
-
-        if session["login_attempts"] >= MAX_ATTEMPTS:
-            if time.time() - session["last_attempt"] < LOCK_TIME:
-                flash(f"Too many attempts. Please wait {LOCK_TIME} seconds.", "danger")
-                return render_template("login.html")
-            else:
-                session["login_attempts"] = 0
-
         conn = get_db()
         user = conn.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
+
+        if user:
+            # Check if account is locked
+            if time.time() < user["locked_until"]:
+                remaining = int(user["locked_until"] - time.time())
+                flash(f"Account locked. Try again in {remaining} seconds.", "danger")
+                conn.close()
+                return render_template("login.html")
+
+            if bcrypt.checkpw(password.encode(), user["password"].encode()):
+                # Success — reset attempts
+                conn.execute(
+                    "UPDATE users SET login_attempts = 0, locked_until = 0 WHERE id = ?",
+                    (user["id"],)
+                )
+                conn.commit()
+                conn.close()
+
+                session.clear()
+                session["user_id"]    = user["id"]
+                session["username"]   = user["username"]
+                session["role"]       = user["role"]
+                session["last_active"] = time.time()
+
+                flash(f"Welcome, {username}!", "success")
+                return redirect(url_for("dashboard"))
+            else:
+                # Failed attempt
+                new_attempts = user["login_attempts"] + 1
+                locked_until = 0
+                if new_attempts >= MAX_ATTEMPTS:
+                    locked_until = time.time() + LOCK_TIME
+                    flash(f"Too many failed attempts. Account locked for {LOCK_TIME} seconds.", "danger")
+                else:
+                    remaining_attempts = MAX_ATTEMPTS - new_attempts
+                    flash(f"Invalid username or password. {remaining_attempts} attempt(s) remaining.", "danger")
+                conn.execute(
+                    "UPDATE users SET login_attempts = ?, locked_until = ? WHERE id = ?",
+                    (new_attempts, locked_until, user["id"])
+                )
+                conn.commit()
+        else:
+            # User not found — same generic message to avoid username enumeration
+            flash("Invalid username or password.", "danger")
+
         conn.close()
-
-        if user and bcrypt.checkpw(password.encode(), user["password"].encode()):
-            session.clear()
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
-            session["role"] = user["role"]
-
-            session["login_attempts"] = 0
-
-            flash(f"Welcome, {username}!", "success")
-            return redirect(url_for("dashboard"))
-
-        session["login_attempts"] += 1
-        session["last_attempt"] = time.time()
-
-        flash("Invalid username or password.", "danger")
-
     return render_template("login.html")
 
 @app.route("/logout")
@@ -222,7 +256,7 @@ def logout():
 def change_password():
     if request.method == "POST":
         current_password = request.form["current_password"]
-        new_password = request.form["new_password"]
+        new_password     = request.form["new_password"]
         confirm_password = request.form["confirm_password"]
 
         conn = get_db()
@@ -240,38 +274,18 @@ def change_password():
             flash("New passwords do not match.", "danger")
             return render_template("change_password.html")
 
-        if len(new_password) < 8:
+        if new_password == current_password:
             conn.close()
-            flash("New password must be at least 8 characters.", "danger")
+            flash("New password must be different from your current password.", "danger")
             return render_template("change_password.html")
 
-        if " " in new_password:
+        error = validate_password(new_password)
+        if error:
             conn.close()
-            flash("New password cannot contain spaces.", "danger")
-            return render_template("change_password.html")
-
-        if not any(char.isupper() for char in new_password):
-            conn.close()
-            flash("New password must contain at least one uppercase letter.", "danger")
-            return render_template("change_password.html")
-
-        if not any(char.islower() for char in new_password):
-            conn.close()
-            flash("New password must contain at least one lowercase letter.", "danger")
-            return render_template("change_password.html")
-
-        if not any(char.isdigit() for char in new_password):
-            conn.close()
-            flash("New password must contain at least one number.", "danger")
-            return render_template("change_password.html")
-
-        if not any(char in "!@#$%^&*()" for char in new_password):
-            conn.close()
-            flash("New password must contain at least one special character.", "danger")
+            flash(error, "danger")
             return render_template("change_password.html")
 
         hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-
         conn.execute(
             "UPDATE users SET password = ? WHERE id = ?",
             (hashed, session["user_id"])
@@ -314,7 +328,7 @@ def dashboard():
 def admin():
     conn = get_db()
     students = conn.execute(
-        "SELECT id, username FROM users WHERE role = 'user' ORDER BY username"
+        "SELECT id, username, login_attempts, locked_until FROM users WHERE role = 'user' ORDER BY username"
     ).fetchall()
     all_grades = conn.execute("""
         SELECT g.id, u.username, g.course, g.grade_enc, g.notes_enc, g.date
@@ -334,7 +348,18 @@ def admin():
             "notes":    decrypt(g["notes_enc"]),
             "date":     g["date"],
         })
-    return render_template("admin.html", students=students, grades=grade_list)
+
+    now = time.time()
+    student_list = []
+    for s in students:
+        student_list.append({
+            "id":       s["id"],
+            "username": s["username"],
+            "locked":   now < s["locked_until"],
+            "attempts": s["login_attempts"],
+        })
+
+    return render_template("admin.html", students=student_list, grades=grade_list)
 
 # ── Admin assigns a grade ──────────────────────────────────────────────────────
 @app.route("/admin/assign_grade", methods=["POST"])
@@ -345,13 +370,18 @@ def assign_grade():
     grade   = request.form["grade"].strip()
     notes   = request.form["notes"].strip()
     date    = request.form["date"].strip()
-    # Course length validation
-    if len(course) > 50:
-      flash("Course name is too long (max 50 characters).", "danger")
-      return redirect(url_for("admin"))
 
     if not user_id or not course or not grade or not date:
         flash("Student, course, grade and date are all required.", "danger")
+        return redirect(url_for("admin"))
+    if len(course) > 50:
+        flash("Course name is too long (max 50 characters).", "danger")
+        return redirect(url_for("admin"))
+    if len(grade) > 10:
+        flash("Grade value is too long (max 10 characters).", "danger")
+        return redirect(url_for("admin"))
+    if len(notes) > 300:
+        flash("Notes are too long (max 300 characters).", "danger")
         return redirect(url_for("admin"))
 
     conn = get_db()
@@ -383,8 +413,23 @@ def edit_grade(grade_id):
     if not grade or not date:
         flash("Grade and date cannot be empty.", "danger")
         return redirect(url_for("admin"))
+    if len(grade) > 10:
+        flash("Grade value is too long.", "danger")
+        return redirect(url_for("admin"))
+    if len(notes) > 300:
+        flash("Notes are too long (max 300 characters).", "danger")
+        return redirect(url_for("admin"))
 
     conn = get_db()
+    # Verify grade exists before updating
+    existing = conn.execute(
+        "SELECT id FROM grades WHERE id = ?", (grade_id,)
+    ).fetchone()
+    if not existing:
+        flash("Grade not found.", "danger")
+        conn.close()
+        return redirect(url_for("admin"))
+
     conn.execute(
         "UPDATE grades SET grade_enc = ?, notes_enc = ?, date = ? WHERE id = ?",
         (encrypt(grade), encrypt(notes or "—"), date, grade_id)
@@ -423,6 +468,21 @@ def delete_user(user_id):
     conn.close()
     return redirect(url_for("admin"))
 
+# ── Admin unlocks a locked student account ─────────────────────────────────────
+@app.route("/admin/unlock_user/<int:user_id>", methods=["POST"])
+@admin_required
+def unlock_user(user_id):
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET login_attempts = 0, locked_until = 0 WHERE id = ? AND role = 'user'",
+        (user_id,)
+    )
+    conn.commit()
+    conn.close()
+    flash("Account unlocked successfully.", "success")
+    return redirect(url_for("admin"))
+
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    debug_mode = os.environ.get("FLASK_ENV") != "production"
+    app.run(debug=debug_mode)

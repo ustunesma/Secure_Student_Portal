@@ -75,13 +75,26 @@
             {% for s in students %}
             <tr>
               <td class="text-muted">{{ s.id }}</td>
-              <td><i class="fas fa-user-graduate me-1 text-primary"></i>{{ s.username }}</td>
+              <td>
+                <i class="fas fa-user-graduate me-1 text-primary"></i>{{ s.username }}
+                {% if s.locked %}
+                  <span class="badge bg-danger ms-1">Locked</span>
+                {% endif %}
+              </td>
               <td>
                 <span class="badge bg-secondary">
                   {{ grades | selectattr("username", "equalto", s.username) | list | length }}
                 </span>
               </td>
-              <td>
+              <td class="d-flex gap-1">
+                {% if s.locked %}
+                <form method="POST" action="/admin/unlock_user/{{ s.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-outline-warning btn-sm">
+                    <i class="fas fa-unlock"></i>
+                  </button>
+                </form>
+                {% endif %}
                 <form method="POST" action="/admin/delete_user/{{ s.id }}"
                       onsubmit="return confirm('Delete {{ s.username }} and all their grades?')">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
