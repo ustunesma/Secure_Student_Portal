@@ -431,18 +431,20 @@ def assign_grade():
     notes   = request.form["notes"].strip()
     date    = request.form["date"].strip()
 
+    redirect_target = url_for("admin") if session.get("role") == "admin" else url_for("teacher")
+
     if not user_id or not course or not grade or not date:
         flash("Student, course, grade and date are all required.", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
     if len(course) > 50:
         flash("Course name is too long (max 50 characters).", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
     if len(grade) > 10:
         flash("Grade value is too long (max 10 characters).", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
     if len(notes) > 300:
         flash("Notes are too long (max 300 characters).", "danger")
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
 
     conn = get_db()
     student = conn.execute(
@@ -451,7 +453,7 @@ def assign_grade():
     if not student:
         flash("Invalid student selected.", "danger")
         conn.close()
-        return redirect(url_for("admin"))
+        return redirect(redirect_target)
 
     conn.execute(
         "INSERT INTO grades (user_id, assigned_by, course, grade_enc, notes_enc, date) VALUES (?, ?, ?, ?, ?, ?)",
@@ -460,7 +462,7 @@ def assign_grade():
     conn.commit()
     conn.close()
     flash("Grade assigned and encrypted successfully.", "success")
-    return redirect(url_for("admin"))
+    return redirect(redirect_target)
 
 # ── Admin edits a grade ────────────────────────────────────────────────────────
 @app.route("/admin/edit_grade/<int:grade_id>", methods=["POST"])
@@ -497,7 +499,7 @@ def edit_grade(grade_id):
     conn.commit()
     conn.close()
     flash("Grade updated successfully.", "success")
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin") if session.get("role") == "admin" else url_for("teacher"))
 
 # ── Admin deletes a grade ──────────────────────────────────────────────────────
 @app.route("/admin/delete_grade/<int:grade_id>", methods=["POST"])
@@ -508,7 +510,7 @@ def delete_grade(grade_id):
     conn.commit()
     conn.close()
     flash("Grade deleted.", "info")
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin") if session.get("role") == "admin" else url_for("teacher"))
 
 # ── Admin deletes a student ────────────────────────────────────────────────────
 @app.route("/admin/delete_user/<int:user_id>", methods=["POST"])
