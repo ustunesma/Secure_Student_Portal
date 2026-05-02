@@ -1,4 +1,5 @@
-flask
+Flask
+Flask-WTF
 bcrypt
 cryptography
-Flask-WTF
+python-dotenv
