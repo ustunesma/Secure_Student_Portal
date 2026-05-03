@@ -1,8 +1,6 @@
 /**
- * Password Strength Meter - Security Audit Project
- * 
- * This script provides real-time visual feedback on password complexity.
- * It evaluates based on length, casing, digits, and special characters.
+ * Password Strength Meter v2 - Secure Student Portal
+ * Refined scoring logic for better distinction between strength levels.
  */
 
 const passwordInput = document.getElementById('passwordInput');
@@ -13,41 +11,49 @@ passwordInput.addEventListener('input', () => {
     const val = passwordInput.value;
     let strength = 0;
 
-    // Baseline: If the input is not empty, start with a minimum strength 
-    // to ensure the red bar is visible even for simple passwords like 'batuhan'.
+    // 1. Minimum existence check
     if (val.length > 0) {
-        strength = 15; 
+        strength = 10; 
     }
 
-    // Security Criteria Assessment
-    if (val.length >= 8) strength += 20;                       // Criteria 1: Length check
-    if (val.match(/[A-Z]/)) strength += 20;                    // Criteria 2: Uppercase check
-    if (val.match(/[0-9]/)) strength += 20;                    // Criteria 3: Digit check
-    if (val.match(/[!@#$%^&*(),.?":{}|<>]/)) strength += 25;   // Criteria 4: Symbol check
+    // 2. Length Assessment (Length is critical for entropy)
+    if (val.length >= 8) strength += 20;   // Basic length
+    if (val.length >= 12) strength += 10;  // Bonus for extra length
+
+    // 3. Complexity Assessment (Weighted Scoring)
+    if (val.match(/[A-Z]/)) strength += 20;                    // Uppercase: +20
+    if (val.match(/[0-9]/)) strength += 20;                    // Digits: +20
+    if (val.match(/[!@#$%^&*(),.?":{}|<>]/)) strength += 30;   // Symbols: +30 (Higher weight)
+
+    // Ensure it doesn't exceed 100
+    if (strength > 100) strength = 100;
 
     // Update UI - Bar Width
     strengthBar.style.width = strength + '%';
     
-    // Update UI - Dynamic Colors and Feedback Messages
+    // 4. Threshold Logic - More strict transitions
     if (val.length === 0) {
-        // Empty state
         strengthBar.style.width = '0%';
         strengthBar.className = 'progress-bar bg-secondary';
         strengthText.innerText = 'Start typing a password...';
-    } else if (strength <= 35) {
-        // Weak state (e.g., only lowercase or short strings)
+    } 
+    // Weak: Only short or simple lowercase strings (0 - 35)
+    else if (strength <= 35) {
         strengthBar.className = 'progress-bar bg-danger';
-        strengthText.innerHTML = '<span class="text-danger">Weak ❌</span> (Add uppercase, numbers, or symbols)';
-    } else if (strength <= 55) {
-        // Moderate state
+        strengthText.innerHTML = '<span class="text-danger">Weak ❌</span>';
+    } 
+    // Moderate: Length + 1 complexity factor (36 - 65)
+    else if (strength <= 65) {
         strengthBar.className = 'progress-bar bg-warning';
         strengthText.innerHTML = '<span class="text-warning">Moderate ⚠️</span>';
-    } else if (strength <= 75) {
-        // Strong state
+    } 
+    // Strong: Length + 2 complexity factors (66 - 85)
+    else if (strength <= 85) {
         strengthBar.className = 'progress-bar bg-info';
         strengthText.innerHTML = '<span class="text-info">Strong 🛡️</span>';
-    } else {
-        // Excellent state
+    } 
+    // Very Secure: Everything combined (86+)
+    else {
         strengthBar.className = 'progress-bar bg-success';
         strengthText.innerHTML = '<span class="text-success">Very Secure! 💪</span>';
     }
