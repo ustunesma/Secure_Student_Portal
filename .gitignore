@@ -4,3 +4,4 @@ secret.key
 __pycache__/
 *.pyc
 instance/
+security_audit.log

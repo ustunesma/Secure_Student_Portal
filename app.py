@@ -10,6 +10,24 @@ import os
 import time
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import logging
+from datetime import datetime
+
+# ── Security Audit Logging Configuration ─────────────────────────────────────
+# We create a specific logger so it doesn't interfere with Flask's terminal output
+security_logger = logging.getLogger('security_audit')
+security_logger.setLevel(logging.INFO)
+
+# This handler tells the logger to write specifically to 'security_audit.log'
+file_handler = logging.FileHandler('security_audit.log')
+file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | IP: %(message)s'))
+security_logger.addHandler(file_handler)
+
+def log_security_event(event_type, details, ip_address):
+    """Utility function to format and save security logs."""
+    log_entry = f"{ip_address} | EVENT: {event_type} | DETAILS: {details}"
+    security_logger.info(log_entry) # Uses our specific logger instead of root logging
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
@@ -31,6 +49,9 @@ limiter = Limiter(
 # Custom error handler for HTTP 429 (Too Many Requests)
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    # Log the security violation before showing the error page
+    log_security_event("RATE_LIMIT_EXCEEDED", f"Threshold reached: {e.description}", get_remote_address())
+    
     return render_template("429.html", description=e.description), 429
 
 MAX_ATTEMPTS = 3
@@ -218,6 +239,8 @@ def register():
                 (username, hashed, "user")
             )
             conn.commit()
+            # LOG: User registration events are critical for monitoring and forensic analysis
+            log_security_event("USER_REGISTRATION", f"New user created: {username}", get_remote_address())
             conn.close()
             flash("Account created! Please log in.", "success")
             return redirect(url_for("login"))
@@ -242,11 +265,15 @@ def login():
             # Check if account is locked
             if time.time() < user["locked_until"]:
                 remaining = int(user["locked_until"] - time.time())
+                # LOG: Record access attempt on a locked account for forensic analysis
+                log_security_event("ACCOUNT_LOCKOUT", f"Blocked access to locked account: {username}", get_remote_address())
                 flash(f"Account locked. Try again in {remaining} seconds.", "danger")
                 conn.close()
                 return render_template("login.html")
 
             if bcrypt.checkpw(password.encode(), user["password"].encode()):
+                # LOG: Authentication success provides traceability and accountability
+                log_security_event("AUTH_SUCCESS", f"User '{username}' logged in successfully.", get_remote_address())
                 # Success — reset attempts
                 conn.execute(
                     "UPDATE users SET login_attempts = 0, locked_until = 0 WHERE id = ?",
@@ -264,6 +291,8 @@ def login():
                 flash(f"Welcome, {username}!", "success")
                 return redirect(url_for("dashboard"))
             else:
+                # LOG: Authentication failure helps detect potential Brute-force attacks
+                log_security_event("AUTH_FAILURE", f"Invalid password attempt for user: {username}", get_remote_address())
                 # Failed attempt
                 new_attempts = user["login_attempts"] + 1
                 locked_until = 0
@@ -363,6 +392,28 @@ def dashboard():
             "date":   r["date"],
         })
     return render_template("dashboard.html", grades=grades)
+
+# ──     Admin Logs          ────────────────────────────────────────────────────
+@app.route("/admin/logs")
+@admin_required
+def view_logs():
+    """Security Dashboard: Reads the audit log file and displays events to the admin."""
+    log_list = []
+    log_file_path = 'security_audit.log'
+    
+    try:
+        if os.path.exists(log_file_path):
+            with open(log_file_path, 'r') as f:
+                # Get the last 50 entries to avoid overloading the page
+                lines = f.readlines()[-50:]
+                # Reverse to show the most recent events first
+                log_list = [line.strip() for line in reversed(lines)]
+        else:
+            log_list = ["Audit log file not found. System has not recorded any events yet."]
+    except Exception as e:
+        log_list = [f"Error reading security logs: {str(e)}"]
+        
+    return render_template("logs.html", logs=log_list)
 
 # ── Admin panel ────────────────────────────────────────────────────────────────
 @app.route("/admin")
@@ -545,6 +596,8 @@ def delete_user(user_id):
         conn.execute("DELETE FROM grades WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
+        #logging the deletion of a user account is crucial for security auditing and accountability, especially when performed by an admin
+        log_security_event("ADMIN_ACTION", f"Admin '{session['username']}' deleted user: {user['username']}", get_remote_address())
         flash(f"Student '{user['username']}' deleted.", "info")
     conn.close()
     return redirect(url_for("admin"))
@@ -580,6 +633,8 @@ def create_teacher():
             (username, hashed, "teacher")
         )
         conn.commit()
+        #logging the creation of a teacher account by an admin is important for security auditing and accountability, as it involves granting elevated privileges
+        log_security_event("ADMIN_ACTION", f"Admin '{session['username']}' created teacher account: {username}", get_remote_address())
         conn.close()
         flash(f"Teacher account '{username}' created successfully.", "success")
     except sqlite3.IntegrityError:
@@ -595,7 +650,10 @@ def delete_teacher(user_id):
         "SELECT username, role FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     if user and user["role"] == "teacher":
+        teacher_name = user["username"]
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        #logging the deletion of a teacher account by an admin is crucial for security auditing and accountability, as it involves revoking elevated privileges
+        log_security_event("ADMIN_ACTION", f"Admin '{session['username']}' deleted teacher: {teacher_name}", get_remote_address())
         conn.commit()
         flash(f"Teacher '{user['username']}' deleted.", "info")
     else:
@@ -613,6 +671,8 @@ def unlock_user(user_id):
         (user_id,)
     )
     conn.commit()
+    # LOG: Admin unlocking an account is a critical security event that should be logged for accountability
+    log_security_event("ADMIN_ACTION", f"Admin '{session['username']}' unlocked user ID: {user_id}", get_remote_address())
     conn.close()
     flash("Account unlocked successfully.", "success")
     return redirect(url_for("admin"))

@@ -2,7 +2,20 @@
 {% block title %}Admin Panel{% endblock %}
 {% block content %}
 
-<!-- Teacher Management -->
+   <!-- Security Logs -->
+<div class="container mt-4"> 
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Admin Panel</h2>
+        
+        <a href="{{ url_for('view_logs') }}" class="btn btn-danger shadow-sm">
+            <i class="fas fa-history"></i> View Security Logs
+        </a>
+    </div>
+
+    <hr>
+
+    <!-- Teacher Management -->
 <div class="row mb-4">
   <div class="col-lg-5">
     <div class="card">
