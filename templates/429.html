@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert - Rate Limit Exceeded</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { text-align: center; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border-top: 6px solid #dc3545; max-width: 450px; width: 90%; }
+        .icon { font-size: 50px; color: #dc3545; margin-bottom: 10px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        h1 { color: #dc3545; font-size: 56px; margin: 0; font-weight: 800; }
+        h2 { color: #343a40; margin-bottom: 15px; font-size: 22px; }
+        p { color: #6c757d; line-height: 1.5; font-size: 15px; }
+        
+        /* Countdown Styles */
+        .countdown-box { background: #fff5f5; border: 1px solid #feb2b2; padding: 20px; border-radius: 12px; margin: 25px 0; }
+        #timer { font-size: 32px; font-weight: bold; color: #c53030; display: block; }
+        .progress-container { width: 100%; background-color: #edf2f7; border-radius: 10px; height: 8px; margin-top: 15px; overflow: hidden; }
+        #progress-bar { width: 100%; background-color: #dc3545; height: 100%; transition: width 1s linear; }
+        
+        .badge { display: inline-block; background: #e2e8f0; color: #4a5568; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+        .footer { margin-top: 30px; font-size: 11px; color: #a0aec0; border-top: 1px solid #edf2f7; padding-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🛡️</div>
+        <h1>429</h1>
+        <h2>Access Throttled</h2>
+        <p>Your IP address has been temporarily restricted due to suspicious activity (multiple rapid requests).</p>
+        
+        <div class="countdown-box">
+            <small style="color: #718096; text-transform: uppercase; letter-spacing: 1px; font-size: 10px; font-weight: 700;">Please wait before retrying</small>
+            <span id="timer">60</span>
+            <div class="progress-container">
+                <div id="progress-bar"></div>
+            </div>
+        </div>
+
+        <p style="font-size: 13px;">Details: {{ description }}</p>
+        <span class="badge">DDoS Protection Active</span>
+        
+        <div class="footer">
+            SecurePortal Authentication Shield v1.2<br>
+            Managed by Software Security Team
+        </div>
+    </div>
+
+    <script>
+        let timeLeft = 60;
+        const timerElement = document.getElementById('timer');
+        const progressBar = document.getElementById('progress-bar');
+        const totalTime = 60;
+
+        const countdown = setInterval(() => {
+            timeLeft--;
+            timerElement.textContent = timeLeft;
+            
+            // Update progress bar
+            const width = (timeLeft / totalTime) * 100;
+            progressBar.style.width = width + '%';
+
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                window.location.href = "/login"; // Auto redirect back to login
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

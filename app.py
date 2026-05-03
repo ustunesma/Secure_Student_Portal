@@ -8,6 +8,8 @@ import bcrypt
 from cryptography.fernet import Fernet
 import os
 import time
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-change-this-key")
@@ -17,6 +19,19 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
 )
 csrf = CSRFProtect(app)
+
+# ── Rate Limiting Configuration ──────────────────────────────────────────────
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
+# Custom error handler for HTTP 429 (Too Many Requests)
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template("429.html", description=e.description), 429
 
 MAX_ATTEMPTS = 3
 LOCK_TIME    = 60        # seconds
@@ -171,6 +186,7 @@ def index():
     return redirect(url_for("login"))
 
 @app.route("/register", methods=["GET", "POST"])
+@limiter.limit("3 per minute") # Throttles account creation to 3 per minute per IP
 def register():
     if request.method == "POST":
         username = request.form["username"].strip()
@@ -211,6 +227,7 @@ def register():
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute") # Throttles authentication attempts to 5 per minute per IP
 def login():
     if request.method == "POST":
         username = request.form["username"].strip()
