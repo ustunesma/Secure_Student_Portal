@@ -48,7 +48,8 @@ Create a file named `.env` in the project root:
 
 ```env
 ADMIN_PASSWORD=YourStrongPassword123!
-SECRET_KEY=your-random-secret-key-here
+SECRET_KEY=replace-with-your-own-secret-key
+FERNET_KEY=replace-with-your-own-fernet-key
 ```
 
 > ⚠️ `ADMIN_PASSWORD` must be at least 8 characters and contain uppercase, lowercase, a digit, and a special character.
