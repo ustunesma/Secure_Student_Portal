@@ -160,4 +160,4 @@ MIT License — see `LICENSE` file for details.
 
 ---
 
-*SWE210 Software Security Group Project — Istanbul, 2026*
+*SWE210 Software Security Group Project*
