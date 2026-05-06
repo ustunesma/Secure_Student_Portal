@@ -2,15 +2,26 @@
 
 **Team:** [Esma Üstün], [Tuana Ülbeği], [Batuhan Şahin]
 
-A role-based web application built with Flask for the **SWE210 Software Security** group project.  
-Demonstrates **Authentication**, **Access Control (RBAC)**, and **Encryption** in a practical academic portal.
+A role-based web application built with Flask for the SWE210 Software Security group project.
+Includes features such as authentication, role-based access control (RBAC), and encrypted data storage.
 
 ---
+## 📖 Project Overview
+
+This project was developed as a group project for the SWE210 Software Security course using Flask.
+
+The system is designed as a simple student portal where students can view their grades, teachers can manage grades, and admins can manage the overall system.
+
+The main purpose of the project was to apply software security concepts in a practical web application. During development, we focused on improving both usability and security.
+
+The project includes security features such as password hashing with bcrypt, role-based access control, CSRF protection, encrypted grade storage using Fernet, session timeout, brute-force protection, and secure session management.
+
+Through this project, we gained practical experience in Flask development and learned how security mechanisms can be applied in a real application.
 
 ## 📁 Project Structure
 
 ```
-SECURE_NOTES_APP/
+SECURE_PORTAL/
 ├── app.py                   # Main Flask application
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Environment secrets (never commit this)
@@ -82,8 +93,6 @@ Then open: **http://127.0.0.1:5000**
 - **bcrypt** password hashing with automatic salt — passwords never stored in plaintext
 - Strong password policy: 8+ chars, uppercase, lowercase, digit, special character
 - Brute-force lockout: account locked for 60 seconds after 3 failed attempts (tracked in database, not session)
-- Generic error messages — no username enumeration
-- Password change requires current password verification
 - Real-time password strength meter on registration page
 
 ### Access Control (RBAC)
@@ -94,9 +103,8 @@ Then open: **http://127.0.0.1:5000**
 - Custom 429 page with countdown timer on rate limit
 
 ### Encryption
-- **Fernet** symmetric encryption (AES-128-CBC + HMAC-SHA256) on all grade and notes data
-- Random IV per encryption call — same grade encrypted twice produces different ciphertext
-- Plaintext grade values never written to disk
+- **Fernet** symmetric encryption on grade and notes data
+- Sensitive grade and notes data are encrypted before being stored in the database
 - Encryption key loaded from environment variable (`FERNET_KEY`) or `secret.key` file
 
 ### Additional
@@ -121,7 +129,7 @@ python-dotenv
 
 ---
 
-## 🗄️ Database Schema
+## 🗄️ Database Tables
 
 **users**
 | Column | Type | Description |
