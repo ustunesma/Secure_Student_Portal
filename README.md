@@ -1,5 +1,7 @@
 # 🛡️ SecurePortal — Secure Student Grade Portal
 
+**Team:** [Esma Üstün], [Tuana Ülbeği], [Batuhan Şahin]
+
 A role-based web application built with Flask for the **SWE210 Software Security** group project.  
 Demonstrates **Authentication**, **Access Control (RBAC)**, and **Encryption** in a practical academic portal.
 
