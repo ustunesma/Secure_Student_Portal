@@ -30,12 +30,19 @@
             <input type="text" name="username" class="form-control"
                    placeholder="e.g. prof_smith" required/>
           </div>
-          <div class="mb-3">
+          <div class="mb-4">
             <label class="form-label fw-semibold">Password</label>
-            <input type="password" name="password" class="form-control" required/>
-          </div>
-          <div class="alert alert-secondary small mb-3">
-            Password: 8+ chars, uppercase, lowercase, number, special character.
+            <input type="password" name="password" id="passwordInput" class="form-control" required/>
+            
+            <div class="progress mt-2" style="height: 8px;">
+                <div id="strengthBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+            
+            <small id="strengthText" class="form-text text-muted mb-2">Start typing a password...</small>
+            
+            <div class="alert alert-secondary p-2 small mb-0">
+                Password: 8+ chars, uppercase, lowercase, number, special character.
+            </div>
           </div>
           <button type="submit" class="btn btn-warning w-100">
             <i class="fas fa-user-plus me-2"></i>Create Teacher
@@ -289,5 +296,5 @@
     {% endif %}
   </div>
 </div>
-
+<script src="{{ url_for('static', filename='js/strength.js') }}"></script>
 {% endblock %}
