@@ -1,0 +1,23 @@
+2026-05-05 19:38:34,693 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-05 19:39:14,633 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'ustun_esma' logged in successfully.
+2026-05-05 19:39:35,368 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'superior' logged in successfully.
+2026-05-05 19:39:54,989 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'student' logged in successfully.
+2026-05-05 19:40:05,321 | INFO | IP: 127.0.0.1 | EVENT: RATE_LIMIT_EXCEEDED | DETAILS: Threshold reached: 5 per 1 minute
+2026-05-07 00:53:08,279 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-07 00:53:25,799 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'ustun_esma' logged in successfully.
+2026-05-07 00:54:05,804 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-07 00:54:21,460 | INFO | IP: 127.0.0.1 | EVENT: ADMIN_ACTION | DETAILS: Admin 'admin' created teacher account: ulbegi_tuana
+2026-05-07 00:55:13,291 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'ulbegi_tuana' logged in successfully.
+2026-05-07 00:55:53,281 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'ustun_esma' logged in successfully.
+2026-05-07 00:57:27,304 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-07 22:29:48,522 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-07 22:31:37,299 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'ustun_esma' logged in successfully.
+2026-05-07 22:32:23,762 | INFO | IP: 127.0.0.1 | EVENT: AUTH_FAILURE | DETAILS: Invalid password attempt for user: student
+2026-05-07 22:32:37,863 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'student' logged in successfully.
+2026-05-07 22:32:52,599 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'superior' logged in successfully.
+2026-05-07 22:57:24,995 | INFO | IP: 127.0.0.1 | EVENT: AUTH_FAILURE | DETAILS: Invalid password attempt for user: admin
+2026-05-07 23:00:56,764 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'admin' logged in successfully.
+2026-05-07 23:01:21,345 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'superior' logged in successfully.
+2026-05-07 23:01:36,763 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'student' logged in successfully.
+2026-05-07 23:03:29,677 | INFO | IP: 127.0.0.1 | EVENT: AUTH_FAILURE | DETAILS: Invalid password attempt for user: admin
+2026-05-07 23:16:40,036 | INFO | IP: 127.0.0.1 | EVENT: AUTH_SUCCESS | DETAILS: User 'superior' logged in successfully.
